@@ -58,8 +58,7 @@ df_cran_pkg_desc <- tools::CRAN_package_db() %>%
 # Clean descriptions ------------------------------------------------------
 # pkg info
 df_cran_pkg_infos <- df_cran_pkg_desc %>%
-  select(package, version, license, title, description) %>%
-  left_join(df_cran_pkg_views, by = c("package" = "pkg_name"))
+  select(package, version, license, title, description)
 
 # pkg author + role
 df_cran_pkg_authors <- df_cran_pkg_desc %>%
@@ -72,7 +71,8 @@ df_cran_pkg_authors <- df_cran_pkg_desc %>%
     role = str_trim(role),
     authors = str_remove_all(authors, ",|\n|\\s*\\([^\\)]+\\)|\\)"),
     authors = str_trim(authors)
-  )
+  ) %>% 
+  filter(authors != "")
 
 # pkg author email last - to get institution
 df_cran_pkg_mails <- df_cran_pkg_desc %>%
@@ -155,4 +155,5 @@ write_rds(df_cran_pkg_infos, "data/cran_pkg_infos.rds")
 write_rds(df_cran_pkg_mails, "data/cran_pkg_mails.rds")
 write_rds(df_cran_pkg_authors, "data/cran_pkg_authors.rds")
 write_rds(df_cran_pkg_deps, "data/cran_pkg_deps.rds")
+write_rds(df_cran_pkg_views, "data/cran_pkg_views.rds")
 write_rds(df_cran_pkg_logs_clean, "data/cran_pkg_logs.rds")

@@ -1,0 +1,206 @@
+---
+title: "Analysis"
+author: "Thomas Vroylandt"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = FALSE,
+  message = FALSE,
+  warning = FALSE,
+  error = FALSE
+)
+```
+
+```{r packages}
+library(tidyverse)
+library(flextable)
+```
+
+## Data
+
+```{r import}
+df_cran_pkg_infos <- read_rds("data/cran_pkg_infos.rds")
+df_cran_pkg_mails <- read_rds("data/cran_pkg_mails.rds")
+df_cran_pkg_authors <- read_rds("data/cran_pkg_authors.rds")
+df_cran_pkg_deps <- read_rds("data/cran_pkg_deps.rds")
+df_cran_pkg_views <- read_rds("data/cran_pkg_views.rds")
+df_cran_pkg_logs <- read_rds("data/cran_pkg_logs.rds")
+```
+
+## Mean download
+
+On month > 0 (check if every "big" package has full months since creation).
+
+```{r big_pkgs}
+big_pkgs <- df_cran_pkg_logs %>%
+  group_by(package) %>%
+  summarise(mean_download  = mean(nb_download)) %>% 
+  arrange(desc(mean_download)) %>% 
+  head(20)
+
+big_pkgs %>% 
+  flextable()
+```
+
+Progression for top pkg - WTF on `tidyverse` in 2018 ?
+
+```{r big_pkgs_date}
+df_cran_pkg_logs %>%
+  filter(package %in% big_pkgs$package) %>%
+  mutate(year_month = paste0(year, str_pad(month, 2, "0", side = "left"))) %>%
+  ggplot(aes(
+    x = year_month,
+    y = nb_download,
+    color = package,
+    group = package
+  )) +
+  geom_line(size = 1.1) +
+  theme_minimal()
+```
+
+## In views
+
+```{r views}
+views_download <- df_cran_pkg_views %>%
+  right_join(df_cran_pkg_infos, by = c("pkg_name" = "package")) %>% 
+  select(pkg_name, views) %>% 
+  mutate(have_view = !is.na(views)) %>%
+  left_join(df_cran_pkg_logs %>%
+              group_by(package) %>%
+              summarise(mean_download  = mean(nb_download)),
+            by = c("pkg_name" = "package"))
+
+# have view
+views_download %>% 
+  filter(mean_download < 50000) %>% 
+  ggplot(aes(x = mean_download, fill = have_view)) +
+  geom_histogram(position = "dodge", bins = 10) +
+  theme_minimal()
+
+views_download %>% 
+  arrange(desc(mean_download)) %>% 
+  select(pkg_name, have_view, mean_download) %>% 
+  head(30) %>% 
+  flextable()
+
+# by view
+views_download %>% 
+  filter(have_view == TRUE) %>% 
+  group_by(views) %>% 
+  summarise(mean_download = mean(mean_download, na.rm = TRUE)) %>% 
+  arrange(desc(mean_download)) %>% 
+  flextable()
+```
+
+## Authors
+
+```{r}
+df_cran_pkg_authors %>% 
+  distinct(authors, package) %>% 
+  group_by(authors) %>% 
+  count(sort = TRUE) %>% 
+  head(20) %>% 
+  flextable()
+
+df_cran_pkg_authors %>% 
+  filter(role == "cph") %>% 
+  group_by(authors) %>% 
+  count(sort = TRUE) %>% 
+  head(20)
+```
+
+## Mails
+
+```{r}
+df_cran_pkg_mails %>% 
+  group_by(mail_domain) %>% 
+  count(sort = TRUE) %>% 
+  filter(str_detect(mail_domain, "uni|edu"))
+
+df_cran_pkg_mails %>% 
+  mutate(mail_domain = str_remove_all(mail_domain, "'|\\\t|cautcre")) %>% 
+  group_by(mail_domain) %>% 
+  count(sort = TRUE) %>% 
+  filter(!str_detect(mail_domain, ".edu|uni")) %>% 
+  head(20)
+```
+
+## Dependencies network
+
+```{r}
+```
+
+## Map the peoples 
+
+```{r}
+# create edge list
+df_cran_pkg_authors_distinct <- df_cran_pkg_authors %>%
+  filter(role %in% c("aut", "cre")) %>% 
+  distinct(package, authors)
+
+df_cran_pkg_authors_links <- df_cran_pkg_authors_distinct %>%
+  full_join(df_cran_pkg_authors_distinct, by = c("package")) %>%
+  group_by(authors.x, authors.y) %>%
+  count() %>%
+  filter(authors.x != authors.y) %>%
+  ungroup()
+
+
+# create node list
+
+```
+
+## Score of dependencies 
+
+How much of the package download are explainable as download as a dependency ?
+Create a score.
+
+```{r}
+# logs nb
+download_2019 <- df_cran_pkg_logs %>% 
+  filter(year == 2019) %>% 
+  group_by(package) %>% 
+  summarise(nb_download = sum(nb_download, na.rm = TRUE))
+
+# distinct deps
+df_cran_pkg_deps_distinct <- df_cran_pkg_deps %>%
+  filter(type_dep != "suggests" & pkg_dep != "R" & pkg_dep != "") %>%
+  distinct(package, pkg_dep)
+
+# score
+df_cran_pkg_deps_score <- df_cran_pkg_deps_distinct %>%
+  left_join(download_2019, by = c("package")) %>%
+  group_by(pkg_dep) %>%
+  summarise(nb_download_dep = sum(nb_download, na.rm = TRUE)) %>%
+  ungroup() %>%
+  full_join(
+    df_cran_pkg_infos %>%
+      distinct(package) %>%
+      left_join(download_2019, by = "package") %>%
+      rename(nb_download_pkg = nb_download),
+    by = c("pkg_dep" = "package")
+  ) %>%
+  replace_na(list(nb_download_pkg = 0, nb_download_dep = 0)) %>%
+  left_join(df_cran_pkg_deps_distinct %>%
+              group_by(pkg_dep) %>%
+              count(name = "nb_is_dep"),
+            by = "pkg_dep") %>%
+  rename(package = pkg_dep) %>%
+  mutate(score_dep = nb_download_dep / nb_download_pkg,
+         download_self = nb_download_pkg - nb_download_dep)
+
+# add a weight by number of dep ?
+
+# here lies everything
+df_cran_pkg_deps_score %>% 
+  filter(!is.infinite(score_dep)) %>% 
+  arrange(download_self) %>% 
+  head(20)
+
+# nb_download dep -> number of download for the packages that have the package as dep
+# nb_downlod_pkg -> number of download for the package
+# score_dep : share of the package download as a dep (estimate) -> 0 = pkg for itself, 1 + = pkg as dep
+```
+

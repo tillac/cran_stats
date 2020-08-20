@@ -30,5 +30,5 @@ Some work as be done on the subject and could be useful :
 
 + https://arxiv.org/pdf/2007.07820.pdf
 + https://blog.revolutionanalytics.com/2015/08/differences-in-the-network-structure-of-cran-and-bioconductor.html?utm_content=bufferabeb1&utm_medium=social&utm_source=twitter.com&utm_campaign=buffer
-+ https://grapher.network/
++ https://shiny.john-coene.com/cran/
 + https://cran.r-project.org/web/packages/pkggraph/vignettes/vignette_pkggraph.html
