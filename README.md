@@ -2,9 +2,6 @@
 
 This repo aims to analyse some caracteristics of CRAN package.
 
----> only scrap views pages
----> cut cranlogs calls
-
 ## Data collecting
 
 The data collecting part was inspired by this question on [SO](https://stackoverflow.com/questions/11560865/list-and-description-of-all-packages-in-cran-from-within-r).
@@ -26,3 +23,12 @@ Some inspiration for the cleaning come from the `grapher` package (and this [fun
 + GIF of the growing of CRAN ;
 + do packages have nationality ?
 + predict the topic of packages with depends and description and compare it to in views subject .
+
+## Resources
+
+Some work as be done on the subject and could be useful :
+
++ https://arxiv.org/pdf/2007.07820.pdf
++ https://blog.revolutionanalytics.com/2015/08/differences-in-the-network-structure-of-cran-and-bioconductor.html?utm_content=bufferabeb1&utm_medium=social&utm_source=twitter.com&utm_campaign=buffer
++ https://grapher.network/
++ https://cran.r-project.org/web/packages/pkggraph/vignettes/vignette_pkggraph.html

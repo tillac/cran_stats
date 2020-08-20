@@ -138,11 +138,21 @@ df_cran_pkg_logs <- map_dfr(list_pkg_size100,
                               pb$tick()
                               cran_downloads(x, from = "2013-01-01", to = "2020-07-31")
                             }) %>%
-  as_tibble()
+  as_tibble() %>% 
+  distinct()
+
+# clean logs
+df_cran_pkg_logs_clean <- df_cran_pkg_logs  %>%
+  filter(count > 0) %>% 
+  mutate(year = lubridate::year(date),
+         month = lubridate::month(date)) %>%
+  group_by(year, month, package) %>%
+  summarise(nb_download = sum(count)) %>%
+  ungroup()
 
 # Export ------------------------------------------------------------------
 write_rds(df_cran_pkg_infos, "data/cran_pkg_infos.rds")
 write_rds(df_cran_pkg_mails, "data/cran_pkg_mails.rds")
 write_rds(df_cran_pkg_authors, "data/cran_pkg_authors.rds")
 write_rds(df_cran_pkg_deps, "data/cran_pkg_deps.rds")
-write_rds(df_cran_pkg_logs, "data/cran_pkg_logs.rds")
+write_rds(df_cran_pkg_logs_clean, "data/cran_pkg_logs.rds")
