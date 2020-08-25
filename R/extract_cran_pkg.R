@@ -69,7 +69,7 @@ df_cran_pkg_authors <- df_cran_pkg_desc %>%
   separate_rows(role, sep = ", ") %>%
   mutate(
     role = str_trim(role),
-    authors = str_remove_all(authors, ",|\n|\\s*\\([^\\)]+\\)|\\)"),
+    authors = str_remove_all(authors, ",|\n|\\s*\\([^\\)]+\\)|\\)|'"),
     authors = str_trim(authors)
   ) %>% 
   filter(authors != "")

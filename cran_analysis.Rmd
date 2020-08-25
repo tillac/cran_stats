@@ -16,6 +16,8 @@ knitr::opts_chunk$set(
 ```{r packages}
 library(tidyverse)
 library(flextable)
+library(tidygraph)
+library(ggraph)
 ```
 
 ## Data
@@ -111,6 +113,90 @@ df_cran_pkg_authors %>%
   head(20)
 ```
 
+Authors network -> collaboration
+
+```{r}
+# node list
+node_list_authors_0 <- df_cran_pkg_authors %>%
+  filter(role %in% c("aut", "cre", "ctb")) %>% 
+  distinct(authors, package) %>% 
+  group_by(authors) %>% 
+  count(name = "n_package") %>% 
+  ungroup()
+
+node_list_authors_1 <-  df_cran_pkg_authors %>%
+  filter(role %in% c("aut", "cre", "ctb")) %>%
+  group_by(authors, role) %>%
+  summarise(n_role = n()) %>%
+  ungroup() %>%
+  pivot_wider(
+    names_from = role,
+    values_from = n_role,
+    values_fill = list(n_role = 0)
+  ) %>% 
+  mutate(perc_cre = cre / (ctb + aut ) * 100) %>% 
+  select(authors, perc_cre)
+
+node_list_authors <- node_list_authors_0 %>% 
+  left_join(node_list_authors_1, by = "authors") %>% 
+  filter(n_package >= 15)
+
+# edge list
+edge_list_authors <- df_cran_pkg_authors %>%
+  filter(role %in% c("aut", "cre", "ctb")) %>%
+  distinct(package, authors) %>%
+  left_join(df_cran_pkg_authors %>%
+              select(package, authors), by = "package") %>%
+  filter(authors.x != authors.y) %>%
+  group_by(authors.x, authors.y) %>%
+  count(name = "n_link") %>%
+  ungroup() %>%
+  rename(from = authors.x,
+         to = authors.y) %>%
+  filter(from %in% node_list_authors$authors &
+           to %in% node_list_authors$authors)
+
+# format graph
+graph <-
+  tbl_graph(nodes = node_list_authors, edges = edge_list_authors)
+
+# plot using ggraph
+ggraph(graph, layout = 'kk') +
+  geom_edge_fan(aes(alpha = n_link)) +
+  geom_node_point(aes(size = n_package, color = -perc_cre)) +
+  theme_graph()
+```
+
+Authors network -> dependencies : who develop package on which other packages are built on ?
+
+```{r}
+deps_pkg <- df_cran_pkg_deps %>% 
+  filter(type_dep %in% c("depends", "imports", "linking_to")) %>% 
+  distinct(package, pkg_dep) %>% 
+  group_by(pkg_dep) %>% 
+  count(name = "n_pkg_dep", sort = TRUE) %>% 
+  ungroup() %>% 
+  filter(pkg_dep != "" & pkg_dep != "R")
+
+deps_pkg %>%
+  left_join(df_cran_pkg_authors, by = c("pkg_dep" = "package")) %>%
+  distinct() %>% 
+  filter(role %in% c("cre")) %>% 
+  group_by(authors) %>% 
+  summarise(n_package = n(),
+            n_pkg_dep = sum(n_pkg_dep)) %>% 
+  ungroup() %>% 
+  arrange(desc(n_pkg_dep))
+
+pkg_dep_author <- deps_pkg %>%
+  left_join(df_cran_pkg_authors, by = c("pkg_dep" = "package")) %>%
+  distinct() %>% 
+  filter(role %in% c("cre"))
+
+
+```
+
+
 ## Mails
 
 ```{r}
@@ -125,11 +211,20 @@ df_cran_pkg_mails %>%
   count(sort = TRUE) %>% 
   filter(!str_detect(mail_domain, ".edu|uni")) %>% 
   head(20)
+
+mails_first <- df_cran_pkg_mails %>%
+  mutate(mail_domain = str_remove_all(mail_domain, "'|\\\t|cautcre")) %>%
+  group_by(package) %>%
+  slice(1) %>%
+  group_by(mail_domain) %>%
+  count(sort = TRUE) %>% 
+  ungroup()
 ```
 
 ## Dependencies network
 
 ```{r}
+df_cran_pkg_deps
 ```
 
 ## Map the peoples 
