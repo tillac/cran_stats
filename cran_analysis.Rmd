@@ -20,6 +20,8 @@ library(tidygraph)
 library(ggraph)
 ```
 
+https://xkcd.com/2347/
+
 ## Data
 
 ```{r import}
@@ -37,9 +39,11 @@ On month > 0 (check if every "big" package has full months since creation).
 
 ```{r big_pkgs}
 big_pkgs <- df_cran_pkg_logs %>%
+  filter(nb_download > 0) %>% 
   group_by(package) %>%
-  summarise(mean_download  = mean(nb_download)) %>% 
-  arrange(desc(mean_download)) %>% 
+  summarise(mean_download  = mean(nb_download),
+            median_download = median(nb_download)) %>% 
+  arrange(desc(median_download)) %>% 
   head(20)
 
 big_pkgs %>% 
@@ -71,19 +75,18 @@ views_download <- df_cran_pkg_views %>%
   mutate(have_view = !is.na(views)) %>%
   left_join(df_cran_pkg_logs %>%
               group_by(package) %>%
-              summarise(mean_download  = mean(nb_download)),
+              summarise(median_download  = median(nb_download)),
             by = c("pkg_name" = "package"))
 
 # have view
 views_download %>% 
-  filter(mean_download < 50000) %>% 
-  ggplot(aes(x = mean_download, fill = have_view)) +
+  ggplot(aes(x = median_download, fill = have_view)) +
   geom_histogram(position = "dodge", bins = 10) +
   theme_minimal()
 
 views_download %>% 
-  arrange(desc(mean_download)) %>% 
-  select(pkg_name, have_view, mean_download) %>% 
+  arrange(desc(median_download)) %>% 
+  select(pkg_name, views, have_view, median_download) %>% 
   head(30) %>% 
   flextable()
 
@@ -91,8 +94,8 @@ views_download %>%
 views_download %>% 
   filter(have_view == TRUE) %>% 
   group_by(views) %>% 
-  summarise(mean_download = mean(mean_download, na.rm = TRUE)) %>% 
-  arrange(desc(mean_download)) %>% 
+  summarise(median_download = mean(median_download, na.rm = TRUE)) %>% 
+  arrange(desc(median_download)) %>% 
   flextable()
 ```
 
@@ -298,4 +301,8 @@ df_cran_pkg_deps_score %>%
 # nb_downlod_pkg -> number of download for the package
 # score_dep : share of the package download as a dep (estimate) -> 0 = pkg for itself, 1 + = pkg as dep
 ```
+
+Number of collaborator / authors on main packages ?
+
+Get main packages through page RAnk or other centrality ?
 
