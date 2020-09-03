@@ -31,7 +31,7 @@ df_cran_pkg_views <- read_rds("data/cran_pkg_views.rds")
 
 For all R users, CRAN is the place were you can find most of the packages you need to run code. Last month, I saw this Xkcd drawing :
 
-![](img/dependency.png)
+![](https://imgs.xkcd.com/comics/dependency.png)
 
 And this remind me of something : behind packages, you can find people. And this people are at the heart of all your analytics pipelines because they build, maintain and develop R packages. It's their ideas and their work, discussion and collaborations that made R as it is. One example of it is the [fantastic story of the pipe](http://adolfoalvarez.cl/plumbers-chains-and-famous-painters-the-history-of-the-pipe-operator-in-r/) (`%>%`) by Adolfo Alvarez.
 
