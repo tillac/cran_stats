@@ -15,11 +15,13 @@ df_rstudio_employees <- tibble(name = rstudio_about %>%
                                  html_text()) %>%
   mutate(
     name = str_remove_all(name, "\n"),
-    first_name = str_extract(name, "([^\\s]+)"),
-    last_name = str_extract(name, "\\s(.*)"),
-    last_name = str_trim(last_name)
+    name = stringi::stri_trans_general(name, "Latin-ASCII"),
+    name = case_when(name == "J.J. Allaire" ~ "JJ Allaire",
+                     name == "Thomas Pedersen" ~ "Thomas Lin Pedersen",
+                     name == "Rich Iannone" ~ "Richard Iannone",
+                     TRUE ~ name)
   ) %>%
-  filter(name != "Maybe You ?")
+  filter(name != "Maybe You?")
 
 # Export ------------------------------------------------------------------
 write_rds(df_rstudio_employees, "data/rstudio_employees.rds")

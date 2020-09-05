@@ -3,52 +3,7 @@
 # -------------------- #
 
 library(tidyverse)
-library(rvest)
-library(polite)
 library(cranlogs)
-
-# Task Views Pages --------------------------------------------------------
-# Bow
-session <-
-  bow("https://CRAN.r-project.org/",
-      user_agent = "Thomas Vroylandt",
-      delay = 5)
-
-# scrape list of views
-df_cran_views_link <-
-  tibble(
-    link = session %>%
-      nod(path = "web/views/") %>%
-      scrape(content = "text/html; charset=UTF-8") %>%
-      html_nodes("a") %>%
-      html_attr("href")
-  ) %>%
-  filter(!str_detect(link, "http")) %>%
-  mutate(link = paste0("web/views/", link))
-
-# scrape views content
-df_cran_views <- df_cran_views_link %>%
-  mutate(description = map(link, function(x) {
-    session %>%
-      nod(path = x) %>%
-      scrape(content = "text/html; charset=UTF-8")
-  }))
-
-# clean views
-df_cran_pkg_views <- df_cran_views %>%
-  mutate(
-    views = str_remove_all(link, "web/views/|.html"),
-    pkg_name = map(description, function(x) {
-      x %>%
-        html_nodes("a") %>%
-        html_attr("href")
-    })
-  ) %>%
-  select(views, pkg_name) %>%
-  unnest(c(pkg_name)) %>%
-  filter(str_detect(pkg_name, "../packages/")) %>%
-  mutate(pkg_name = str_remove_all(pkg_name, "../packages/|/index.html")) %>%
-  distinct(views, pkg_name)
 
 # CRAN pkg description ----------------------------------------------------
 df_cran_pkg_desc <- tools::CRAN_package_db() %>%
@@ -66,25 +21,30 @@ df_cran_pkg_authors <- df_cran_pkg_desc %>%
   separate_rows(author, sep = "\\]") %>%
   filter(author != "") %>%
   separate(author, into = c("authors", "role"), sep = "\\[") %>%
-  separate_rows(role, sep = ", ") %>%
+  separate_rows(role, sep = ",") %>%
+  separate_rows(authors, sep = ",") %>%
+  separate_rows(authors, sep = " and ") %>%
+  separate_rows(authors, sep = " & ") %>%
+  separate_rows(authors, sep = ";") %>%
+  separate_rows(authors, sep = "\\\n") %>%
   mutate(
     role = str_trim(role),
+    authors = stringi::stri_trans_general(authors, "Latin-ASCII"),
     authors = str_remove_all(authors, ",|\n|\\s*\\([^\\)]+\\)|\\)|'"),
+    authors = str_remove_all(authors, "(?<=<)(.*)(?=>)"),
+    authors = str_remove_all(authors, "(?<=with )(.*)"),
+    authors = str_remove_all(authors, "(?<=contribution)(.*)"),
+    authors = str_remove_all(authors, "'|<|>|with |contribution"),
+    authors = str_replace_all(authors, "  ", " "),
     authors = str_trim(authors)
-  ) %>% 
-  filter(authors != "")
-
-# pkg author email last - to get institution
-df_cran_pkg_mails <- df_cran_pkg_desc %>%
-  filter(!is.na(authors_r)) %>%
-  select(package, authors_r) %>%
-  separate_rows(authors_r, sep = "email|person\\(|comment|ORCID|role") %>%
-  filter(str_detect(authors_r, "\\@")) %>%
-  mutate(
-    authors_r = str_remove_all(authors_r, ' |=|"|\\\n|\\\\|\\(|\\)|,'),
-    mail_domain = str_extract(authors_r, "(?<=\\@)(.*)")
   ) %>%
-  select(package, mail_domain)
+  filter(authors != "") %>% 
+mutate(
+  authors_bis = str_replace(authors, " ", "_"),
+  authors_bis = stringi::stri_replace_last_fixed(authors_bis, " ", "_"),
+  space_count = str_count(authors_bis, " "),
+  authors_ok = if_else(space_count == 0, "ok", "ko")
+)
 
 # function for dependencies
 make_dep_long <- function(data, var_long) {
@@ -152,8 +112,6 @@ df_cran_pkg_logs_clean <- df_cran_pkg_logs  %>%
 
 # Export ------------------------------------------------------------------
 write_rds(df_cran_pkg_infos, "data/cran_pkg_infos.rds")
-write_rds(df_cran_pkg_mails, "data/cran_pkg_mails.rds")
 write_rds(df_cran_pkg_authors, "data/cran_pkg_authors.rds")
 write_rds(df_cran_pkg_deps, "data/cran_pkg_deps.rds")
-write_rds(df_cran_pkg_views, "data/cran_pkg_views.rds")
 write_rds(df_cran_pkg_logs_clean, "data/cran_pkg_logs.rds")
